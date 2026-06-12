@@ -43,7 +43,7 @@
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
 
-    let snake, dir, nextDir, apple, score, intervalId, gameOver, gameStarted;
+    let snake, dir, nextDir, apple, score, intervalId, gameOver, gameStarted, obstacles, tomatoCount;
     const buttonBounds = { x: 150, y: 180, w: 120, h: 40 };
 
     function init() {
@@ -57,6 +57,8 @@
       score    = 0;
       gameOver = false;
       gameStarted = false;
+      obstacles = [];
+      tomatoCount = 0;
       scoreEl.textContent = 'SCORE : 0';
       apple = randomApple();
       clearInterval(intervalId);
@@ -148,8 +150,24 @@
           x: Math.floor(Math.random() * COLS),
           y: Math.floor(Math.random() * ROWS),
         };
-      } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+      } while (snake.some(s => s.x === pos.x && s.y === pos.y) || 
+               obstacles.some(o => o.x === pos.x && o.y === pos.y));
       return pos;
+    }
+
+    function generateObstacle() {
+      let pos;
+      do {
+        pos = {
+          x: Math.floor(Math.random() * COLS),
+          y: Math.floor(Math.random() * ROWS),
+        };
+      } while (
+        obstacles.some(o => o.x === pos.x && o.y === pos.y) ||
+        (apple && apple.x === pos.x && apple.y === pos.y) ||
+        snake.some(s => s.x === pos.x && s.y === pos.y)
+      );
+      obstacles.push(pos);
     }
 
     function tick() {
@@ -164,11 +182,24 @@
       if (snake.slice(0, -1).some(s => s.x === head.x && s.y === head.y)) {
         endGame(); return;
       }
+      // Collision obstacles
+      if (obstacles.some(o => o.x === head.x && o.y === head.y)) {
+        endGame(); return;
+      }
 
       snake.unshift(head);
 
+      // +1 point par tick (150ms ≈ 6-7 points par seconde réelle)
+      score++;
+
       if (head.x === apple.x && head.y === apple.y) {
-        score++;
+        // +10 points par tomate mangée
+        score += 10;
+        tomatoCount++;
+        // Tous les 2 tomates, générer un obstacle
+        if (tomatoCount % 2 === 0) {
+          generateObstacle();
+        }
         scoreEl.textContent = 'SCORE : ' + score;
         const next = randomApple();
         if (next) apple = next;
@@ -176,6 +207,7 @@
         snake.pop();
       }
 
+      scoreEl.textContent = 'SCORE : ' + score;
       draw();
     }
 
@@ -200,17 +232,23 @@
          ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(canvas.width, j * CELL); ctx.stroke();
        }
 
-       // Pomme
-       const ax = apple.x * CELL, ay = apple.y * CELL;
-       ctx.fillStyle = '#ff4757';
-       ctx.beginPath();
-       ctx.arc(ax + CELL / 2, ay + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
-       ctx.fill();
-       // Petite feuille
-       ctx.fillStyle = '#2ed573';
-       ctx.fillRect(ax + CELL / 2, ay + 2, 4, 4);
+      // Obstacles
+        obstacles.forEach(obstacle => {
+          ctx.fillStyle = '#666666';
+          ctx.fillRect(obstacle.x * CELL, obstacle.y * CELL, CELL, CELL);
+        });
 
-       // Corps du serpent
+        // Pomme
+        const ax = apple.x * CELL, ay = apple.y * CELL;
+        ctx.fillStyle = '#ff4757';
+        ctx.beginPath();
+        ctx.arc(ax + CELL / 2, ay + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+        ctx.fill();
+        // Petite feuille
+        ctx.fillStyle = '#2ed573';
+        ctx.fillRect(ax + CELL / 2, ay + 2, 4, 4);
+
+        // Corps du serpent
        snake.forEach((seg, i) => {
          const x = seg.x * CELL, y = seg.y * CELL;
          if (i === 0) {
