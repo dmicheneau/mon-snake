@@ -43,7 +43,7 @@
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
 
-    let snake, dir, nextDir, apple, score, intervalId, gameOver, gameStarted, obstacles, tomatoCount;
+    let snake, dir, nextDir, apple, score, intervalId, gameOver, gameStarted, obstacles, tomatoCount, enemies, appleEatenCount;
     const buttonBounds = { x: 150, y: 180, w: 120, h: 40 };
 
     function init() {
@@ -59,6 +59,8 @@
       gameStarted = false;
       obstacles = [];
       tomatoCount = 0;
+      enemies = [];
+      appleEatenCount = 0;
       scoreEl.textContent = 'SCORE : 0';
       apple = randomApple();
       clearInterval(intervalId);
@@ -170,6 +172,50 @@
       obstacles.push(pos);
     }
 
+    function createEnemy() {
+      // Choose random spawn edge and direction
+      const direction = Math.random();
+      let x, y, dirX, dirY;
+
+      if (direction < 0.25) {
+        // Top edge, moving down
+        x = Math.floor(Math.random() * COLS);
+        y = 0;
+        dirX = 0;
+        dirY = 1;
+      } else if (direction < 0.5) {
+        // Bottom edge, moving up
+        x = Math.floor(Math.random() * COLS);
+        y = ROWS - 1;
+        dirX = 0;
+        dirY = -1;
+      } else if (direction < 0.75) {
+        // Left edge, moving right
+        x = 0;
+        y = Math.floor(Math.random() * ROWS);
+        dirX = 1;
+        dirY = 0;
+      } else {
+        // Right edge, moving left
+        x = COLS - 1;
+        y = Math.floor(Math.random() * ROWS);
+        dirX = -1;
+        dirY = 0;
+      }
+
+      return {
+        x: x,
+        y: y,
+        dirX: dirX,
+        dirY: dirY,
+        moveCounter: 0,  // Counter to slow movement (moves every 2 ticks)
+      };
+    }
+
+    function spawnEnemy() {
+      enemies.push(createEnemy());
+    }
+
     function tick() {
       dir = nextDir;
       const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
@@ -186,6 +232,10 @@
       if (obstacles.some(o => o.x === head.x && o.y === head.y)) {
         endGame(); return;
       }
+      // Collision ennemis
+      if (enemies.some(e => e.x === head.x && e.y === head.y)) {
+        endGame(); return;
+      }
 
       snake.unshift(head);
 
@@ -195,10 +245,15 @@
       if (head.x === apple.x && head.y === apple.y) {
         // +10 points par tomate mangée
         score += 10;
+        appleEatenCount++;
         tomatoCount++;
         // Tous les 2 tomates, générer un obstacle
         if (tomatoCount % 2 === 0) {
           generateObstacle();
+        }
+        // Tous les 5 tomates, générer un ennemi
+        if (appleEatenCount % 5 === 0) {
+          spawnEnemy();
         }
         scoreEl.textContent = 'SCORE : ' + score;
         const next = randomApple();
@@ -206,6 +261,18 @@
       } else {
         snake.pop();
       }
+
+      // Update enemy positions (slow movement - every 2 ticks)
+      enemies = enemies.filter(enemy => {
+        enemy.moveCounter++;
+        if (enemy.moveCounter >= 2) {
+          enemy.moveCounter = 0;
+          enemy.x += enemy.dirX;
+          enemy.y += enemy.dirY;
+        }
+        // Remove enemy if it left the grid
+        return enemy.x >= 0 && enemy.x < COLS && enemy.y >= 0 && enemy.y < ROWS;
+      });
 
       scoreEl.textContent = 'SCORE : ' + score;
       draw();
@@ -232,13 +299,43 @@
          ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(canvas.width, j * CELL); ctx.stroke();
        }
 
-      // Obstacles
-        obstacles.forEach(obstacle => {
-          ctx.fillStyle = '#666666';
-          ctx.fillRect(obstacle.x * CELL, obstacle.y * CELL, CELL, CELL);
-        });
+       // Obstacles
+         obstacles.forEach(obstacle => {
+           ctx.fillStyle = '#666666';
+           ctx.fillRect(obstacle.x * CELL, obstacle.y * CELL, CELL, CELL);
+         });
 
-        // Pomme
+         // Ennemis (Galaga-style insects)
+         enemies.forEach(enemy => {
+           const ex = enemy.x * CELL;
+           const ey = enemy.y * CELL;
+           const cx = ex + CELL / 2;
+           const cy = ey + CELL / 2;
+
+           // Corps (cercle)
+           ctx.fillStyle = '#ff6b6b';
+           ctx.beginPath();
+           ctx.arc(cx, cy, CELL / 3, 0, Math.PI * 2);
+           ctx.fill();
+
+           // Ailes/antennes (petits rectangles de chaque côté)
+           ctx.fillStyle = '#ff4444';
+           // Aile gauche
+           ctx.fillRect(ex + 2, cy - 3, 4, 6);
+           // Aile droite
+           ctx.fillRect(ex + CELL - 6, cy - 3, 4, 6);
+
+           // Yeux
+           ctx.fillStyle = '#fff';
+           ctx.beginPath();
+           ctx.arc(cx - 3, cy - 2, 1.5, 0, Math.PI * 2);
+           ctx.fill();
+           ctx.beginPath();
+           ctx.arc(cx + 3, cy - 2, 1.5, 0, Math.PI * 2);
+           ctx.fill();
+         });
+
+         // Pomme
         const ax = apple.x * CELL, ay = apple.y * CELL;
         ctx.fillStyle = '#ff4757';
         ctx.beginPath();
