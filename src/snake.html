@@ -44,6 +44,8 @@
     const scoreEl = document.getElementById('score');
 
     let snake, dir, nextDir, apple, score, intervalId, gameOver, gameStarted, obstacles, tomatoCount;
+    let targets = [];
+    let projectiles = [];
     const buttonBounds = { x: 150, y: 180, w: 120, h: 40 };
 
     function init() {
@@ -59,6 +61,8 @@
       gameStarted = false;
       obstacles = [];
       tomatoCount = 0;
+      targets = [];
+      projectiles = [];
       scoreEl.textContent = 'SCORE : 0';
       apple = randomApple();
       clearInterval(intervalId);
@@ -170,6 +174,33 @@
       obstacles.push(pos);
     }
 
+    function generateTarget() {
+      let pos;
+      do {
+        pos = {
+          x: Math.floor(Math.random() * COLS),
+          y: Math.floor(Math.random() * ROWS),
+        };
+      } while (
+        targets.some(t => t.x === pos.x && t.y === pos.y) ||
+        obstacles.some(o => o.x === pos.x && o.y === pos.y) ||
+        (apple && apple.x === pos.x && apple.y === pos.y) ||
+        snake.some(s => s.x === pos.x && s.y === pos.y)
+      );
+      targets.push(pos);
+    }
+
+    function fireProjectile() {
+      if (!gameStarted || gameOver) return;
+      const head = snake[0];
+      projectiles.push({
+        x: head.x,
+        y: head.y,
+        vx: dir.x,
+        vy: dir.y,
+      });
+    }
+
     function tick() {
       dir = nextDir;
       const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
@@ -207,6 +238,30 @@
         snake.pop();
       }
 
+      // Avancer les projectiles
+      projectiles = projectiles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        // Supprimer si sort de l'écran
+        return p.x >= 0 && p.x < COLS && p.y >= 0 && p.y < ROWS;
+      });
+
+      // Détection collision projectile-target
+      projectiles = projectiles.filter(p => {
+        const hitIndex = targets.findIndex(t => t.x === p.x && t.y === p.y);
+        if (hitIndex >= 0) {
+          targets.splice(hitIndex, 1);
+          score += 5;
+          return false; // Supprimer le projectile
+        }
+        return true;
+      });
+
+      // Générer une target tous les 10 apples mangés
+      if (tomatoCount > 0 && tomatoCount % 10 === 0 && targets.length < 3) {
+        generateTarget();
+      }
+
       scoreEl.textContent = 'SCORE : ' + score;
       draw();
     }
@@ -236,6 +291,27 @@
         obstacles.forEach(obstacle => {
           ctx.fillStyle = '#666666';
           ctx.fillRect(obstacle.x * CELL, obstacle.y * CELL, CELL, CELL);
+        });
+
+        // Cibles
+        targets.forEach(target => {
+          ctx.fillStyle = '#ffb347';
+          ctx.beginPath();
+          ctx.arc(target.x * CELL + CELL / 2, target.y * CELL + CELL / 2, CELL / 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ff9800';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(target.x * CELL + CELL / 2, target.y * CELL + CELL / 2, CELL / 2.5, 0, Math.PI * 2);
+          ctx.stroke();
+        });
+
+        // Projectiles
+        projectiles.forEach(proj => {
+          ctx.fillStyle = '#ffd700';
+          ctx.beginPath();
+          ctx.arc(proj.x * CELL + CELL / 2, proj.y * CELL + CELL / 2, CELL / 4, 0, Math.PI * 2);
+          ctx.fill();
         });
 
         // Pomme
@@ -301,6 +377,13 @@
           // Game over → rejouer
           init();
         }
+        return;
+      }
+
+      // Tir avec P ou Ctrl
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Control') {
+        e.preventDefault();
+        fireProjectile();
         return;
       }
 
