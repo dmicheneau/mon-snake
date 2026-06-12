@@ -43,7 +43,8 @@
     const ctx = canvas.getContext('2d');
     const scoreEl = document.getElementById('score');
 
-    let snake, dir, nextDir, apple, score, intervalId, gameOver;
+    let snake, dir, nextDir, apple, score, intervalId, gameOver, gameStarted;
+    const buttonBounds = { x: 150, y: 180, w: 120, h: 40 };
 
     function init() {
       snake = [
@@ -55,10 +56,88 @@
       nextDir  = { x: 1, y: 0 };
       score    = 0;
       gameOver = false;
+      gameStarted = false;
       scoreEl.textContent = 'SCORE : 0';
       apple = randomApple();
       clearInterval(intervalId);
+      drawStartScreen();
+    }
+
+    function startGame() {
+      gameStarted = true;
       intervalId = setInterval(tick, 150);
+      draw();
+    }
+
+    function drawStartScreen() {
+      ctx.fillStyle = '#0f0f1a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grille légère
+      ctx.strokeStyle = '#1e1e2e';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= COLS; i++) {
+        ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, canvas.height); ctx.stroke();
+      }
+      for (let j = 0; j <= ROWS; j++) {
+        ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(canvas.width, j * CELL); ctx.stroke();
+      }
+
+      // Pomme
+      const ax = apple.x * CELL, ay = apple.y * CELL;
+      ctx.fillStyle = '#ff4757';
+      ctx.beginPath();
+      ctx.arc(ax + CELL / 2, ay + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#2ed573';
+      ctx.fillRect(ax + CELL / 2, ay + 2, 4, 4);
+
+      // Corps du serpent
+      snake.forEach((seg, i) => {
+        const x = seg.x * CELL, y = seg.y * CELL;
+        if (i === 0) {
+          ctx.fillStyle = '#7bed9f';
+        } else {
+          const ratio = 1 - i / snake.length * 0.5;
+          ctx.fillStyle = `rgba(78, 204, 163, ${ratio})`;
+        }
+        ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
+
+        // Yeux sur la tête
+        if (i === 0) {
+          ctx.fillStyle = '#0f0f1a';
+          const ex = dir.x, ey = dir.y;
+          const cx = x + CELL / 2, cy = y + CELL / 2;
+          const ox = ey !== 0 ? 3 : 0, oy = ex !== 0 ? 3 : 0;
+          ctx.beginPath(); ctx.arc(cx + ex * 3 + ox, cy + ey * 3 + oy, 1.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + ex * 3 - ox, cy + ey * 3 - oy, 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+      });
+
+      // Overlay semi-transparent
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Titre
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#4ecca3';
+      ctx.font = 'bold 48px monospace';
+      ctx.fillText('SNAKE', canvas.width / 2, 80);
+
+      // Bouton
+      const bx = buttonBounds.x, by = buttonBounds.y, bw = buttonBounds.w, bh = buttonBounds.h;
+      ctx.fillStyle = '#4ecca3';
+      ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px monospace';
+      ctx.fillText('COMMENCER', bx + bw / 2, by + bh / 2 + 6);
+
+      // Texte d'info
+      ctx.fillStyle = '#aaa';
+      ctx.font = '14px monospace';
+      ctx.fillText('Clic ou [Espace] pour jouer', canvas.width / 2, 280);
+      ctx.restore();
     }
 
     function randomApple() {
@@ -102,74 +181,94 @@
 
     function endGame() {
       gameOver = true;
+      gameStarted = false;
       clearInterval(intervalId);
       draw();
-      // Overlay game over
-      ctx.fillStyle = 'rgba(0,0,0,0.65)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#ff4757';
-      ctx.font = 'bold 28px monospace';
-      ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 24);
-      ctx.fillStyle = '#eee';
-      ctx.font = '18px monospace';
-      ctx.fillText('SCORE : ' + score, canvas.width / 2, canvas.height / 2 + 10);
-      ctx.fillStyle = '#4ecca3';
-      ctx.font = '14px monospace';
-      ctx.fillText('[Espace] pour rejouer', canvas.width / 2, canvas.height / 2 + 38);
-      ctx.restore();
     }
 
-    function draw() {
-      ctx.fillStyle = '#0f0f1a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+     function draw() {
+       ctx.fillStyle = '#0f0f1a';
+       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Grille légère
-      ctx.strokeStyle = '#1e1e2e';
-      ctx.lineWidth = 0.5;
-      for (let i = 0; i <= COLS; i++) {
-        ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, canvas.height); ctx.stroke();
-      }
-      for (let j = 0; j <= ROWS; j++) {
-        ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(canvas.width, j * CELL); ctx.stroke();
-      }
+       // Grille légère
+       ctx.strokeStyle = '#1e1e2e';
+       ctx.lineWidth = 0.5;
+       for (let i = 0; i <= COLS; i++) {
+         ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, canvas.height); ctx.stroke();
+       }
+       for (let j = 0; j <= ROWS; j++) {
+         ctx.beginPath(); ctx.moveTo(0, j * CELL); ctx.lineTo(canvas.width, j * CELL); ctx.stroke();
+       }
 
-      // Pomme
-      const ax = apple.x * CELL, ay = apple.y * CELL;
-      ctx.fillStyle = '#ff4757';
-      ctx.beginPath();
-      ctx.arc(ax + CELL / 2, ay + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
-      ctx.fill();
-      // Petite feuille
-      ctx.fillStyle = '#2ed573';
-      ctx.fillRect(ax + CELL / 2, ay + 2, 4, 4);
+       // Pomme
+       const ax = apple.x * CELL, ay = apple.y * CELL;
+       ctx.fillStyle = '#ff4757';
+       ctx.beginPath();
+       ctx.arc(ax + CELL / 2, ay + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+       ctx.fill();
+       // Petite feuille
+       ctx.fillStyle = '#2ed573';
+       ctx.fillRect(ax + CELL / 2, ay + 2, 4, 4);
 
-      // Corps du serpent
-      snake.forEach((seg, i) => {
-        const x = seg.x * CELL, y = seg.y * CELL;
-        if (i === 0) {
-          // Tête
-          ctx.fillStyle = '#7bed9f';
-        } else {
-          const ratio = 1 - i / snake.length * 0.5;
-          ctx.fillStyle = `rgba(78, 204, 163, ${ratio})`;
-        }
-        ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
+       // Corps du serpent
+       snake.forEach((seg, i) => {
+         const x = seg.x * CELL, y = seg.y * CELL;
+         if (i === 0) {
+           // Tête
+           ctx.fillStyle = '#7bed9f';
+         } else {
+           const ratio = 1 - i / snake.length * 0.5;
+           ctx.fillStyle = `rgba(78, 204, 163, ${ratio})`;
+         }
+         ctx.fillRect(x + 1, y + 1, CELL - 2, CELL - 2);
 
-        // Yeux sur la tête
-        if (i === 0) {
-          ctx.fillStyle = '#0f0f1a';
-          const ex = dir.x, ey = dir.y;
-          const cx = x + CELL / 2, cy = y + CELL / 2;
-          const ox = ey !== 0 ? 3 : 0, oy = ex !== 0 ? 3 : 0;
-          ctx.beginPath(); ctx.arc(cx + ex * 3 + ox, cy + ey * 3 + oy, 1.5, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + ex * 3 - ox, cy + ey * 3 - oy, 1.5, 0, Math.PI * 2); ctx.fill();
-        }
-      });
-    }
+         // Yeux sur la tête
+         if (i === 0) {
+           ctx.fillStyle = '#0f0f1a';
+           const ex = dir.x, ey = dir.y;
+           const cx = x + CELL / 2, cy = y + CELL / 2;
+           const ox = ey !== 0 ? 3 : 0, oy = ex !== 0 ? 3 : 0;
+           ctx.beginPath(); ctx.arc(cx + ex * 3 + ox, cy + ey * 3 + oy, 1.5, 0, Math.PI * 2); ctx.fill();
+           ctx.beginPath(); ctx.arc(cx + ex * 3 - ox, cy + ey * 3 - oy, 1.5, 0, Math.PI * 2); ctx.fill();
+         }
+       });
+
+       // Afficher game over si le jeu s'est terminé
+       if (gameOver) {
+         ctx.fillStyle = 'rgba(0,0,0,0.65)';
+         ctx.fillRect(0, 0, canvas.width, canvas.height);
+         ctx.save();
+         ctx.textAlign = 'center';
+         ctx.fillStyle = '#ff4757';
+         ctx.font = 'bold 28px monospace';
+         ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 24);
+         ctx.fillStyle = '#eee';
+         ctx.font = '18px monospace';
+         ctx.fillText('SCORE : ' + score, canvas.width / 2, canvas.height / 2 + 10);
+         ctx.fillStyle = '#4ecca3';
+         ctx.font = '14px monospace';
+         ctx.fillText('[Espace] pour rejouer', canvas.width / 2, canvas.height / 2 + 38);
+         ctx.restore();
+       }
+     }
 
     document.addEventListener('keydown', e => {
+      // Espace pour lancer/relancer
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (!gameStarted && !gameOver) {
+          // Écran de démarrage → lancer
+          startGame();
+        } else if (gameOver) {
+          // Game over → rejouer
+          init();
+        }
+        return;
+      }
+
+      // Contrôles de direction (uniquement si le jeu a commencé)
+      if (!gameStarted) return;
+
       const map = {
         ArrowUp:    { x: 0, y: -1 },
         ArrowDown:  { x: 0, y:  1 },
@@ -188,8 +287,19 @@
           nextDir = newDir;
         }
       }
-      if (e.key === ' ' && gameOver) {
-        init();
+    });
+
+    // Clic sur le bouton
+    canvas.addEventListener('click', e => {
+      if (gameStarted || gameOver) return; // Ignorer si jeu en cours ou terminé
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const bx = buttonBounds.x, by = buttonBounds.y, bw = buttonBounds.w, bh = buttonBounds.h;
+      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+        startGame();
       }
     });
 
